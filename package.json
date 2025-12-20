@@ -4,15 +4,12 @@
   "description": "Backend API para Sistema de Reciclaje",
   "main": "src/server.js",
   "scripts": {
+    "db:migrate:requests": "node src/database/runMigration.js",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "db:migrate": "node src/database/migrate.js",
     "db:seed": "node src/database/seed.js",
-    "test:connection": "node test-connection.js",
-    "db:create": "node create-database.js",
-    "diagnose": "node diagnose-connection.js",
-    "test:s3": "node test-s3.js",
-    "test:s3:upload": "node test-s3-upload.js"
+    "db:seed:teachers": "node seed-teachers.js"
   },
   "keywords": [
     "reciclaje",

@@ -11,11 +11,11 @@ const s3 = new AWS.S3({
 const BUCKET_NAME = process.env.S3_BUCKET_NAME;
 
 /**
- * Subir imagen a S3
+ * Subir imagen a S3 y generar URL temporal firmada
  * @param {Buffer} imageBuffer - Buffer de la imagen
  * @param {String} fileName - Nombre del archivo (con extensión)
  * @param {String} contentType - Tipo MIME (ej: 'image/jpeg', 'image/png')
- * @returns {Promise<String>} URL pública de la imagen
+ * @returns {Promise<String>} URL temporal firmada (presigned URL) válida por 7 días
  */
 async function uploadImage(imageBuffer, fileName, contentType = 'image/jpeg') {
   try {
@@ -28,14 +28,21 @@ async function uploadImage(imageBuffer, fileName, contentType = 'image/jpeg') {
       Key: key,
       Body: imageBuffer,
       ContentType: contentType,
-      // ACL removido - el bucket debe tener política pública configurada
-      // En lugar de ACL, usa Bucket Policy para acceso público
     };
 
+    // Subir imagen a S3
     const result = await s3.upload(params).promise();
+    console.log('✅ Imagen subida a S3:', key);
     
-    console.log('✅ Imagen subida a S3:', result.Location);
-    return result.Location; // URL pública de la imagen
+    // Generar URL temporal firmada (válida por 7 días = 604800 segundos)
+    const presignedUrl = s3.getSignedUrl('getObject', {
+      Bucket: BUCKET_NAME,
+      Key: key,
+      Expires: 7 * 24 * 60 * 60, // 7 días en segundos
+    });
+    
+    console.log('✅ URL temporal generada (válida 7 días)');
+    return presignedUrl;
   } catch (error) {
     console.error('❌ Error subiendo imagen a S3:', error);
     throw new Error(`Error al subir imagen: ${error.message}`);

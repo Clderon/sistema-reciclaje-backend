@@ -11,6 +11,17 @@ const rankingRoutes = require('./routes/ranking');
 const badgeRoutes = require('./routes/badges');
 const uploadRoutes = require('./routes/upload');
 
+// Importar rutas de requests con manejo de errores
+let requestRoutes;
+try {
+  requestRoutes = require('./routes/requests');
+  console.log('✅ Ruta /api/requests cargada correctamente');
+} catch (error) {
+  console.error('❌ Error cargando rutas de requests:', error);
+  // Crear un router vacío para evitar que el servidor falle
+  requestRoutes = require('express').Router();
+}
+
 // Importar conexión a base de datos
 const { testConnection } = require('./config/database');
 
@@ -53,6 +64,7 @@ app.use('/api/recycling', recyclingRoutes);
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/badges', badgeRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/requests', requestRoutes);
 
 // Ruta 404
 app.use((req, res) => {

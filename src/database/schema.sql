@@ -16,7 +16,26 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de registros de reciclaje
+-- Tabla de peticiones de revisión (enviadas por estudiantes, revisadas por docentes)
+CREATE TABLE IF NOT EXISTS recycling_requests (
+    id SERIAL PRIMARY KEY,
+    student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    category_id INTEGER NOT NULL CHECK (category_id BETWEEN 1 AND 6),
+    quantity DECIMAL(10, 2) NOT NULL CHECK (quantity > 0),
+    unit VARCHAR(10) NOT NULL CHECK (unit IN ('kg', 'Unid.', 'unid')),
+    evidence_image_url VARCHAR(500) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    points_awarded INTEGER CHECK (points_awarded >= 0),
+    review_message TEXT,
+    reviewed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_student CHECK (
+        (SELECT role FROM users WHERE id = student_id) = 'student'
+    )
+);
+
+-- Tabla de registros de reciclaje (creados cuando se aprueba una petición)
 CREATE TABLE IF NOT EXISTS recycling_records (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -25,6 +44,7 @@ CREATE TABLE IF NOT EXISTS recycling_records (
     unit VARCHAR(10) NOT NULL CHECK (unit IN ('kg', 'Unid.', 'unid')),
     points_earned INTEGER NOT NULL CHECK (points_earned >= 0),
     evidence_image_url VARCHAR(500),
+    request_id INTEGER REFERENCES recycling_requests(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -53,6 +73,10 @@ CREATE INDEX IF NOT EXISTS idx_users_points ON users(total_points DESC);
 CREATE INDEX IF NOT EXISTS idx_recycling_user_id ON recycling_records(user_id);
 CREATE INDEX IF NOT EXISTS idx_recycling_created_at ON recycling_records(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id);
+CREATE INDEX IF NOT EXISTS idx_requests_student_id ON recycling_requests(student_id);
+CREATE INDEX IF NOT EXISTS idx_requests_status ON recycling_requests(status);
+CREATE INDEX IF NOT EXISTS idx_requests_created_at ON recycling_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_requests_reviewed_by ON recycling_requests(reviewed_by);
 
 -- Función para actualizar updated_at automáticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()

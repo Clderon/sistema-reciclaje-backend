@@ -1,22 +1,79 @@
 const { query, getClient } = require('../config/database');
 
-// Función para calcular puntos según categoría y cantidad
+// Función para calcular puntos según categoría y cantidad/peso con sistema de escalado
 function calculatePoints(categoryId, quantity, unit) {
-  // Puntos base por categoría (puedes ajustar estos valores)
-  const pointsPerUnit = {
-    1: { kg: 10, unid: 0 },      // Papel/Cartón
-    2: { kg: 0, unid: 5 },       // Plástico
-    3: { kg: 0, unid: 5 },       // Metal
-    4: { kg: 0, unid: 5 },       // Vidrio
-    5: { kg: 8, unid: 0 },       // Orgánico
-    6: { kg: 7, unid: 0 }        // Otros
+  // Sistema de puntos escalado por categoría
+  // Cada categoría tiene puntos base y posibles bonificaciones por cantidad
+  
+  const unitKey = unit.toLowerCase().includes('kg') ? 'kg' : 'unid';
+  
+  // Configuración de puntos por categoría
+  const pointsConfig = {
+    // 1. Papel/Cartón - Por kg
+    1: {
+      basePointsPerUnit: 10,      // 10 puntos por kg
+      bonusThreshold: 5,           // Bonificación a partir de 5 kg
+      bonusMultiplier: 1.2,        // 20% más puntos con bonificación
+      unit: 'kg'
+    },
+    // 2. Plástico - Por unidad
+    2: {
+      basePointsPerUnit: 5,        // 5 puntos por unidad
+      bonusThreshold: 10,          // Bonificación a partir de 10 unidades
+      bonusMultiplier: 1.15,       // 15% más puntos con bonificación
+      unit: 'unid'
+    },
+    // 3. Metal - Por unidad
+    3: {
+      basePointsPerUnit: 6,        // 6 puntos por unidad (un poco más valioso)
+      bonusThreshold: 8,           // Bonificación a partir de 8 unidades
+      bonusMultiplier: 1.2,        // 20% más puntos con bonificación
+      unit: 'unid'
+    },
+    // 4. Vidrio - Por unidad
+    4: {
+      basePointsPerUnit: 5,        // 5 puntos por unidad
+      bonusThreshold: 12,          // Bonificación a partir de 12 unidades
+      bonusMultiplier: 1.1,        // 10% más puntos con bonificación
+      unit: 'unid'
+    },
+    // 5. Orgánico - Por kg
+    5: {
+      basePointsPerUnit: 8,        // 8 puntos por kg
+      bonusThreshold: 3,           // Bonificación a partir de 3 kg
+      bonusMultiplier: 1.25,       // 25% más puntos con bonificación
+      unit: 'kg'
+    },
+    // 6. Otros - Por kg
+    6: {
+      basePointsPerUnit: 7,        // 7 puntos por kg
+      bonusThreshold: 4,           // Bonificación a partir de 4 kg
+      bonusMultiplier: 1.15,       // 15% más puntos con bonificación
+      unit: 'kg'
+    }
   };
 
-  const pointsConfig = pointsPerUnit[categoryId] || { kg: 0, unid: 0 };
-  const unitKey = unit.toLowerCase().includes('kg') ? 'kg' : 'unid';
-  const pointsPer = pointsConfig[unitKey] || 0;
+  const config = pointsConfig[categoryId];
+  if (!config) {
+    console.warn(`Categoría ${categoryId} no encontrada, usando valores por defecto`);
+    return Math.floor(quantity * 5); // Valor por defecto
+  }
 
-  return Math.floor(quantity * pointsPer);
+  // Verificar que la unidad coincida con la categoría
+  if (config.unit !== unitKey) {
+    console.warn(`Unidad ${unitKey} no coincide con la esperada ${config.unit} para categoría ${categoryId}`);
+  }
+
+  // Calcular puntos base
+  let totalPoints = quantity * config.basePointsPerUnit;
+
+  // Aplicar bonificación si se alcanza el umbral
+  if (quantity >= config.bonusThreshold) {
+    totalPoints = totalPoints * config.bonusMultiplier;
+  }
+
+  // Redondear hacia abajo para evitar decimales
+  return Math.floor(totalPoints);
 }
 
 // Función para determinar nivel según puntos totales
@@ -174,6 +231,8 @@ async function getUserRecyclingHistory(req, res) {
 
 module.exports = {
   createRecycling,
-  getUserRecyclingHistory
+  getUserRecyclingHistory,
+  calculatePoints,
+  getLevelByPoints
 };
 
