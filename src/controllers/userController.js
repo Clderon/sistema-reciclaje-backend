@@ -1,4 +1,5 @@
 const { query } = require('../config/database');
+const { getLevelByPoints } = require('./recyclingController');
 
 // Obtener perfil del usuario actual (por ID)
 async function getUserById(req, res) {
@@ -20,6 +21,30 @@ async function getUserById(req, res) {
     }
 
     const user = result.rows[0];
+    
+    // Calcular el nivel correcto basado en los puntos actuales
+    const correctLevel = getLevelByPoints(user.total_points);
+    
+    // Si el nivel en la BD está desactualizado, actualizarlo
+    if (user.current_level !== correctLevel) {
+      await query(
+        `UPDATE users SET current_level = $1 WHERE id = $2`,
+        [correctLevel, id]
+      );
+      user.current_level = correctLevel;
+    }
+
+    // Obtener conteo de peticiones aprobadas (solo para estudiantes)
+    let approvedRequestsCount = 0;
+    if (user.role === 'student') {
+      const requestsResult = await query(
+        `SELECT COUNT(*) as count 
+         FROM recycling_requests 
+         WHERE student_id = $1 AND status = 'approved'`,
+        [id]
+      );
+      approvedRequestsCount = parseInt(requestsResult.rows[0].count) || 0;
+    }
 
     res.json({
       user: {
@@ -28,7 +53,8 @@ async function getUserById(req, res) {
         role: user.role,
         totalPoints: user.total_points,
         totalRecyclings: user.total_recyclings,
-        currentLevel: user.current_level,
+        currentLevel: correctLevel, // Siempre devolver el nivel correcto
+        approvedRequestsCount: approvedRequestsCount,
         avatarUrl: user.avatar_url,
         createdAt: user.created_at,
         updatedAt: user.updated_at
