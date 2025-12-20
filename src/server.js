@@ -9,6 +9,7 @@ const userRoutes = require('./routes/users');
 const recyclingRoutes = require('./routes/recycling');
 const rankingRoutes = require('./routes/ranking');
 const badgeRoutes = require('./routes/badges');
+const uploadRoutes = require('./routes/upload');
 
 // Importar conexión a base de datos
 const { testConnection } = require('./config/database');
@@ -51,6 +52,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/recycling', recyclingRoutes);
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/badges', badgeRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Ruta 404
 app.use((req, res) => {

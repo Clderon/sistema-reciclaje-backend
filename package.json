@@ -10,7 +10,9 @@
     "db:seed": "node src/database/seed.js",
     "test:connection": "node test-connection.js",
     "db:create": "node create-database.js",
-    "diagnose": "node diagnose-connection.js"
+    "diagnose": "node diagnose-connection.js",
+    "test:s3": "node test-s3.js",
+    "test:s3:upload": "node test-s3-upload.js"
   },
   "keywords": [
     "reciclaje",
@@ -25,7 +27,10 @@
     "pg": "^8.11.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "body-parser": "^1.20.2"
+    "body-parser": "^1.20.2",
+    "aws-sdk": "^2.1491.0",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
