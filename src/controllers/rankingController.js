@@ -1,0 +1,122 @@
+const { query } = require('../config/database');
+
+// Obtener ranking de estudiantes
+async function getStudentsRanking(req, res) {
+  try {
+    const { limit = 10 } = req.query;
+
+    const result = await query(
+      `SELECT id, username, role, total_points, total_recyclings, current_level, avatar_url
+       FROM users
+       WHERE role = 'student'
+       ORDER BY total_points DESC, total_recyclings DESC
+       LIMIT $1`,
+      [limit]
+    );
+
+    const rankings = result.rows.map((row, index) => ({
+      id: row.id,
+      name: row.username,
+      role: row.role,
+      level: row.current_level,
+      points: row.total_points,
+      recyclings: row.total_recyclings,
+      avatar: row.avatar_url,
+      position: index + 1
+    }));
+
+    res.json({
+      rankings,
+      role: 'student'
+    });
+  } catch (error) {
+    console.error('Error en getStudentsRanking:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: error.message
+    });
+  }
+}
+
+// Obtener ranking de docentes
+async function getTeachersRanking(req, res) {
+  try {
+    const { limit = 10 } = req.query;
+
+    const result = await query(
+      `SELECT id, username, role, total_points, total_recyclings, current_level, avatar_url
+       FROM users
+       WHERE role = 'teacher'
+       ORDER BY total_points DESC, total_recyclings DESC
+       LIMIT $1`,
+      [limit]
+    );
+
+    const rankings = result.rows.map((row, index) => ({
+      id: row.id,
+      name: row.username,
+      role: row.role,
+      level: row.current_level,
+      points: row.total_points,
+      recyclings: row.total_recyclings,
+      avatar: row.avatar_url,
+      position: index + 1
+    }));
+
+    res.json({
+      rankings,
+      role: 'teacher'
+    });
+  } catch (error) {
+    console.error('Error en getTeachersRanking:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: error.message
+    });
+  }
+}
+
+// Obtener ranking de padres
+async function getParentsRanking(req, res) {
+  try {
+    const { limit = 10 } = req.query;
+
+    const result = await query(
+      `SELECT id, username, role, total_points, total_recyclings, current_level, avatar_url
+       FROM users
+       WHERE role = 'parent'
+       ORDER BY total_points DESC, total_recyclings DESC
+       LIMIT $1`,
+      [limit]
+    );
+
+    const rankings = result.rows.map((row, index) => ({
+      id: row.id,
+      name: row.username,
+      role: row.role,
+      level: row.current_level,
+      points: row.total_points,
+      recyclings: row.total_recyclings,
+      avatar: row.avatar_url,
+      position: index + 1
+    }));
+
+    res.json({
+      rankings,
+      role: 'parent'
+    });
+  } catch (error) {
+    console.error('Error en getParentsRanking:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: error.message
+    });
+  }
+}
+
+module.exports = {
+  getStudentsRanking,
+  getTeachersRanking,
+  getParentsRanking
+};
+

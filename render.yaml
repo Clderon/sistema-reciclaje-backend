@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: sistema-reciclaje-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      # DATABASE_URL: Configurar manualmente en Render dashboard con tu RDS
+      # Formato: postgresql://usuario:password@host:5432/database
+      # DB_SSL: true (para RDS)
+      # AWS_ACCESS_KEY_ID: (si usas S3)
+      # AWS_SECRET_ACCESS_KEY: (si usas S3)
+      # S3_BUCKET_NAME: (si usas S3)
+      # CORS_ORIGIN: * (o dominio específico de tu app)
+
