@@ -40,6 +40,29 @@ async function createRequest(req, res) {
       });
     }
 
+    // Verificar límite de 5 peticiones por día
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const dailyRequestsCount = await query(
+      `SELECT COUNT(*) as count 
+       FROM recycling_requests 
+       WHERE student_id = $1 
+       AND created_at >= $2 
+       AND created_at <= $3`,
+      [userId, todayStart, todayEnd]
+    );
+
+    const count = parseInt(dailyRequestsCount.rows[0].count, 10);
+    if (count >= 5) {
+      return res.status(429).json({
+        error: 'Límite diario alcanzado',
+        message: 'Has alcanzado el límite de 5 peticiones por día. Intenta mañana.'
+      });
+    }
+
     // Crear petición pendiente
     const result = await query(
       `INSERT INTO recycling_requests (student_id, category_id, quantity, unit, evidence_image_url, status)
