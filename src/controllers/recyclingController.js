@@ -77,12 +77,12 @@ function calculatePoints(categoryId, quantity, unit) {
 }
 
 // Función para determinar nivel según puntos totales
+// Niveles: Hormiga (0-199), Oso Perezoso (200-399), Mono (400-599), Elefante (600-799), Gallito de las Rocas (800+)
 function getLevelByPoints(totalPoints) {
-  if (totalPoints >= 1000) return 'Gallito de las Rocas';
-  if (totalPoints >= 800) return 'Elefante';
-  if (totalPoints >= 600) return 'Mono';
-  if (totalPoints >= 400) return 'Oso Perezoso';
-  if (totalPoints >= 200) return 'Hormiga';
+  if (totalPoints >= 800) return 'Gallito de las Rocas';
+  if (totalPoints >= 600) return 'Elefante';
+  if (totalPoints >= 400) return 'Mono';
+  if (totalPoints >= 200) return 'Oso Perezoso';
   return 'Hormiga';
 }
 
