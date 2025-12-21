@@ -32,7 +32,6 @@ async function uploadImage(imageBuffer, fileName, contentType = 'image/jpeg') {
 
     // Subir imagen a S3
     const result = await s3.upload(params).promise();
-    console.log('✅ Imagen subida a S3:', key);
     
     // Generar URL temporal firmada (válida por 7 días = 604800 segundos)
     const presignedUrl = s3.getSignedUrl('getObject', {
@@ -41,7 +40,7 @@ async function uploadImage(imageBuffer, fileName, contentType = 'image/jpeg') {
       Expires: 7 * 24 * 60 * 60, // 7 días en segundos
     });
     
-    console.log('✅ URL temporal generada (válida 7 días)');
+    console.log('🔗 Imagen S3:', presignedUrl);
     return presignedUrl;
   } catch (error) {
     console.error('❌ Error subiendo imagen a S3:', error);

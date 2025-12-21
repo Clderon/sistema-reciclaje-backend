@@ -14,6 +14,9 @@ async function createRequest(req, res) {
       });
     }
 
+    // Log de la petición
+    console.log(`ID: ${userId}, Cantidad: ${quantity} ${unit}, Imagen: ${evidenceImageUrl}`);
+
     if (quantity <= 0) {
       return res.status(400).json({
         error: 'Cantidad inválida',
