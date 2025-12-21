@@ -1,3 +1,13 @@
+// Forzar IPv4 para todas las resoluciones DNS (Render no soporta IPv6)
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+  // Node.js 17.3.0+ - fuerza IPv4 primero
+  dns.setDefaultResultOrder('ipv4first');
+} else if (dns.setServers) {
+  // Fallback: usar solo servidores DNS IPv4 si es posible
+  // Esto es menos agresivo pero puede ayudar
+}
+
 const { Pool } = require('pg');
 const { getDatabaseConfig } = require('./environment');
 const { URL } = require('url');
@@ -12,17 +22,31 @@ if (dbConfig.connectionString) {
   const isSupabasePooler = dbConfig.connectionString.includes('pooler.supabase.com');
   
   if (isSupabasePooler) {
+    console.log('🔧 Detectado pooler de Supabase - Configurando para IPv4 (family: 4)');
+    
     // Parsear la URL para poder especificar family: 4 (IPv4)
     const parsedUrl = new URL(dbConfig.connectionString);
+    
+    // IMPORTANTE: Parsear correctamente los parámetros de query string si existen
+    const pathParts = parsedUrl.pathname.split('/').filter(p => p);
+    const database = pathParts[pathParts.length - 1] || 'postgres';
+    
     const poolConfig = {
       host: parsedUrl.hostname,
-      port: parseInt(parsedUrl.port, 10),
-      database: parsedUrl.pathname.substring(1), // Remover el '/' inicial
-      user: parsedUrl.username,
+      port: parseInt(parsedUrl.port, 10) || 6543,
+      database: database,
+      user: parsedUrl.username || 'postgres',
       password: parsedUrl.password,
-      family: 4, // Forzar IPv4 (Render no soporta IPv6)
-      ssl: dbConfig.ssl // Ya está configurado en environment.js (rejectUnauthorized: false para Supabase)
+      // Forzar IPv4 usando family: 4 (Render no soporta IPv6)
+      // Esto le dice a Node.js que solo use direcciones IPv4
+      family: 4,
+      ssl: dbConfig.ssl || { rejectUnauthorized: false } // Ya está configurado en environment.js
     };
+    
+    console.log(`   Host: ${poolConfig.host}:${poolConfig.port}`);
+    console.log(`   Database: ${poolConfig.database}`);
+    console.log(`   User: ${poolConfig.user}`);
+    console.log(`   Family: ${poolConfig.family} (IPv4 forzado)`);
     
     pool = new Pool(poolConfig);
   } else {
