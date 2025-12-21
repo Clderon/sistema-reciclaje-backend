@@ -24,8 +24,9 @@ function getDatabaseConfig() {
   if (env === ENVIRONMENTS.AWS) {
     // Configuración para PostgreSQL en la nube (Supabase, AWS RDS, etc.)
     if (process.env.DATABASE_URL) {
-      // Detectar si es Supabase (la URL contiene supabase.co)
-      const isSupabase = process.env.DATABASE_URL.includes('supabase.co');
+      // Detectar si es Supabase (la URL contiene supabase.co o pooler.supabase.com)
+      const isSupabase = process.env.DATABASE_URL.includes('supabase.co') || 
+                         process.env.DATABASE_URL.includes('pooler.supabase.com');
       
       // Para Supabase, necesitamos SSL con rejectUnauthorized: false
       // IMPORTANTE: Remover cualquier parámetro sslmode de la URL para que el objeto SSL tenga control

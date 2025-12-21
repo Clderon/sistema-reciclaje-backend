@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const { getDatabaseConfig } = require('./environment');
+const { URL } = require('url');
 
 // Obtener configuración según el entorno (local o aws)
 const dbConfig = getDatabaseConfig();
@@ -7,18 +8,36 @@ const dbConfig = getDatabaseConfig();
 // Crear pool de conexiones
 let pool;
 if (dbConfig.connectionString) {
-  // Configuración para conexión con connectionString (Supabase, etc.)
-  // Si es Supabase o requiere SSL, siempre agregar la configuración SSL explícitamente
-  const poolConfig = {
-    connectionString: dbConfig.connectionString
-  };
+  // Para Supabase (pooler), necesitamos forzar IPv4 porque Render no soporta IPv6
+  const isSupabasePooler = dbConfig.connectionString.includes('pooler.supabase.com');
   
-  // Siempre agregar SSL si está configurado (necesario para Supabase)
-  if (dbConfig.ssl) {
-    poolConfig.ssl = dbConfig.ssl;
+  if (isSupabasePooler) {
+    // Parsear la URL para poder especificar family: 4 (IPv4)
+    const parsedUrl = new URL(dbConfig.connectionString);
+    const poolConfig = {
+      host: parsedUrl.hostname,
+      port: parseInt(parsedUrl.port, 10),
+      database: parsedUrl.pathname.substring(1), // Remover el '/' inicial
+      user: parsedUrl.username,
+      password: parsedUrl.password,
+      family: 4, // Forzar IPv4 (Render no soporta IPv6)
+      ssl: dbConfig.ssl // Ya está configurado en environment.js (rejectUnauthorized: false para Supabase)
+    };
+    
+    pool = new Pool(poolConfig);
+  } else {
+    // Para otras conexiones, usar connectionString normalmente
+    const poolConfig = {
+      connectionString: dbConfig.connectionString
+    };
+    
+    // Siempre agregar SSL si está configurado (necesario para Supabase)
+    if (dbConfig.ssl) {
+      poolConfig.ssl = dbConfig.ssl;
+    }
+    
+    pool = new Pool(poolConfig);
   }
-  
-  pool = new Pool(poolConfig);
 } else {
   // Configuración para conexión con variables individuales
   pool = new Pool({
