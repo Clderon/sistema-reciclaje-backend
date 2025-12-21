@@ -6,7 +6,7 @@ Backend API para el Sistema de Reciclaje desarrollado con Node.js, Express y Pos
 
 - **Node.js** + **Express** - Servidor API REST
 - **PostgreSQL** - Base de datos
-- **AWS S3** - Almacenamiento de imágenes
+- **Cloudflare R2** - Almacenamiento de imágenes (S3-compatible)
 - **Render/Railway** - Deployment
 
 ## 📁 Estructura del Proyecto
@@ -17,47 +17,30 @@ Sistema-Reciclaje-Backend/
 │   ├── server.js              # Servidor principal
 │   ├── config/
 │   │   ├── database.js        # Configuración de base de datos
-│   │   ├── s3.js              # Configuración de S3
+│   │   ├── s3.js              # Configuración de Cloudflare R2
 │   │   └── environment.js     # Sistema de entornos (local/aws)
 │   ├── controllers/           # Lógica de negocio
-│   │   ├── authController.js
-│   │   ├── userController.js
-│   │   ├── recyclingController.js
-│   │   ├── rankingController.js
-│   │   └── badgeController.js
 │   ├── routes/                # Rutas de la API
-│   │   ├── auth.js
-│   │   ├── users.js
-│   │   ├── recycling.js
-│   │   ├── ranking.js
-│   │   └── badges.js
 │   └── database/
 │       ├── schema.sql         # Esquema principal
 │       ├── migration_add_recycling_requests.sql
-│       ├── seed.sql           # Datos iniciales
 │       ├── migrate.js         # Script unificado de migración
+│       ├── seed.js            # Datos iniciales
 │       └── test-connection.js # Script de prueba de conexión
 ├── package.json
 └── README.md
 ```
 
-## 🛠️ Instalación Local
+## 🛠️ Instalación Rápida
 
-### 1. Clonar o navegar al directorio
-```bash
-cd Sistema-Reciclaje-Backend
-```
-
-### 2. Instalar dependencias
+### 1. Instalar dependencias
 ```bash
 npm install
 ```
 
-### 3. Configurar variables de entorno
+### 2. Configurar `.env`
 
-Crear archivo `.env` en la raíz del proyecto:
-
-**Para desarrollo LOCAL (Docker PostgreSQL + MinIO):**
+**Para desarrollo LOCAL (PostgreSQL en Docker):**
 ```env
 ENVIRONMENT=local
 DB_HOST=localhost
@@ -67,117 +50,62 @@ DB_USER=postgres
 DB_PASSWORD=postgres
 DB_SSL=false
 
-# MinIO (alternativa local a S3)
-USE_MINIO=true
-MINIO_ENDPOINT=http://localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET_NAME=selvago
-
+# Almacenamiento deshabilitado en local
 PORT=3000
 NODE_ENV=development
 CORS_ORIGIN=*
 ```
 
-**Nota:** Si no quieres usar MinIO en local, establece `USE_MINIO=false` y el almacenamiento estará deshabilitado.
-
-**Para producción AWS (RDS + S3):**
+**Para producción con Supabase + Cloudflare R2:**
 ```env
 ENVIRONMENT=aws
-DATABASE_URL=postgresql://usuario:password@host:5432/nombre_db
-DB_SSL=true
+DATABASE_URL=postgresql://postgres:[tu-password]@[tu-proyecto].supabase.co:5432/postgres
 
-AWS_ACCESS_KEY_ID=tu_access_key
-AWS_SECRET_ACCESS_KEY=tu_secret_key
-AWS_REGION=us-east-1
-S3_BUCKET_NAME=nombre-del-bucket
+# Cloudflare R2
+R2_ACCESS_KEY_ID=tu_access_key_id
+R2_SECRET_ACCESS_KEY=tu_secret_access_key
+R2_REGION=auto
+R2_BUCKET_NAME=selva-go
+R2_ENDPOINT=https://[tu-account-id].r2.cloudflarestorage.com
 
 PORT=3000
 NODE_ENV=production
-CORS_ORIGIN=https://tu-dominio.com
+CORS_ORIGIN=*
 ```
 
-### 4. Configurar servicios locales con Docker
+**Nota:** El código detecta automáticamente si es Supabase (por la URL) y configura SSL correctamente. Solo necesitas la `DATABASE_URL` de Supabase.
 
-#### PostgreSQL (Base de datos)
+### 3. Configurar servicios locales
+
+**PostgreSQL en Docker:**
 ```bash
 docker run --name selvago_db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=SelvaGO -p 5432:5432 -d postgres:16
 ```
 
-#### MinIO (Almacenamiento de archivos - alternativa a S3)
-
-MinIO es compatible con la API de S3, perfecto para desarrollo local:
+### 4. Ejecutar migraciones y seeds
 
 ```bash
-docker run --name minio_reciclaje -p 9000:9000 -p 9001:9001 -e "MINIO_ROOT_USER=minioadmin" -e "MINIO_ROOT_PASSWORD=minioadmin" -v minio_data:/data -d minio/minio server /data --console-address ":9001"
-```
-
-**Acceder a MinIO Console:**
-- URL: http://localhost:9001
-- Usuario: `minioadmin`
-- Contraseña: `minioadmin`
-
-**Crear bucket en MinIO:**
-1. Ir a http://localhost:9001
-2. Login con las credenciales
-3. Crear un bucket llamado `selvago` (o el nombre que configuraste en `MINIO_BUCKET_NAME`)
-4. Configurar el bucket como público (opcional, para acceso directo)
-
-**Para iniciar los contenedores después:**
-```bash
-docker start selvago_db
-docker start minio_reciclaje
-```
-
-### 5. Ejecutar migraciones y seeds
-
-**Migración (solo estructura/tablas):**
-```bash
+# Crear estructura de base de datos
 npm run db:migrate
-```
 
-Este comando crea la estructura de la base de datos:
-1. Schema principal (`schema.sql`) - Crea todas las tablas base
-2. Migraciones adicionales (`migration_add_recycling_requests.sql`) - Modificaciones de estructura
-
-**Seed (datos iniciales):**
-```bash
+# Insertar datos iniciales (badges, profesores, estudiantes)
 npm run db:seed
 ```
 
-Este comando inserta datos iniciales:
-1. Badges/logros iniciales
-2. Profesores de prueba
-
-### 6. Probar conexión
-
-El test de conexión verifica que PostgreSQL y MinIO estén funcionando correctamente:
+### 5. Probar conexión
 
 ```bash
-# Probar con entorno actual del .env
-npm run test:connection
-
-# Probar específicamente modo LOCAL
+# Probar entorno local
 npm run test:connection:local
 
-# Probar específicamente modo AWS
-npm run test:connection:aws
+# Probar conexión con R2
+npm run test:connection:r2
 ```
 
-**El test mostrará:**
-- ✅ Estado de conexión a PostgreSQL
-- ✅ Estado de conexión a MinIO (si está habilitado)
-- 💡 Sugerencias para resolver problemas si hay errores
-- 📊 Resumen de todas las conexiones
+### 6. Iniciar servidor
 
-**Si alguna conexión falla, el test te indicará:**
-- Qué contenedores Docker necesitas iniciar
-- Comandos para crear los contenedores si no existen
-- Cómo verificar el estado de los servicios
-
-### 7. Iniciar servidor
 ```bash
-# Desarrollo (con nodemon)
+# Desarrollo
 npm run dev
 
 # Producción
@@ -186,35 +114,56 @@ npm start
 
 El servidor estará disponible en `http://localhost:3000`
 
+## ☁️ Configurar Cloudflare R2
+
+### Paso 1: Obtener credenciales
+
+1. Ve a: https://dash.cloudflare.com/?to=/:account/r2/api-tokens
+2. Click en **"Create API token"**
+3. Configura:
+   - **Permissions:** "Object Read & Write"
+   - **Bucket access:** "Allow access to specific buckets" → Selecciona **"selva-go"**
+4. **Copia AMBAS credenciales** (solo se muestran una vez):
+   - **Access Key ID**
+   - **Secret Access Key**
+
+### Paso 2: Obtener endpoint
+
+1. Ve a tu bucket **"selva-go"** en R2
+2. Click en **"Settings"**
+3. Busca **"S3 API"** y copia el endpoint
+4. Formato: `https://[account-id].r2.cloudflarestorage.com`
+
+### Paso 3: Actualizar `.env`
+
+```env
+ENVIRONMENT=aws
+R2_ACCESS_KEY_ID=tu_access_key_id
+R2_SECRET_ACCESS_KEY=tu_secret_access_key
+R2_REGION=auto
+R2_BUCKET_NAME=selva-go
+R2_ENDPOINT=https://[tu-account-id].r2.cloudflarestorage.com
+```
+
+### Paso 4: Verificar
+
+```bash
+npm run test:connection:r2
+```
+
 ## 🔧 Sistema de Entornos
 
-El sistema permite trabajar con dos entornos:
+- **LOCAL**: PostgreSQL en Docker (sin almacenamiento de imágenes)
+- **AWS**: PostgreSQL en RDS + Cloudflare R2 para imágenes
 
-### LOCAL
-- **Base de datos:** PostgreSQL en Docker local
-- **Almacenamiento:** MinIO 
-
-### AWS
-- **Base de datos:** AWS RDS PostgreSQL
-- **Almacenamiento:** AWS S3 para imágenes
-- Ideal para producción
-
-**MinIO** es una alternativa local a S3 que:
-- ✅ Es compatible con la API de S3 (mismo código funciona)
-- ✅ Se ejecuta en Docker
-- ✅ Perfecto para desarrollo y testing
-- ✅ No requiere configuración de AWS
-
-Para cambiar de entorno, solo modifica `ENVIRONMENT=local` o `ENVIRONMENT=aws` en tu `.env`.
-
-Para usar MinIO en local, configura `USE_MINIO=true` (por defecto está activado).
+Para cambiar de entorno, modifica `ENVIRONMENT=local` o `ENVIRONMENT=aws` en tu `.env`.
 
 ## 📡 Endpoints de la API
 
 ### Autenticación
 - `POST /api/auth/register` - Registrar nuevo usuario
 - `POST /api/auth/login` - Login de usuario existente
-- `POST /api/auth/login-or-register` - Login o registro automático (recomendado)
+- `POST /api/auth/login-or-register` - Login o registro automático
 
 ### Usuarios
 - `GET /api/users/:id` - Obtener usuario por ID
@@ -223,6 +172,11 @@ Para usar MinIO en local, configura `USE_MINIO=true` (por defecto está activado
 ### Reciclaje
 - `POST /api/recycling` - Registrar nuevo reciclaje
 - `GET /api/recycling/user/:userId` - Historial de reciclajes
+
+### Requests (Peticiones de revisión)
+- `POST /api/requests` - Crear petición de revisión
+- `GET /api/requests` - Listar peticiones (profesores)
+- `PUT /api/requests/:id/review` - Revisar petición (aprobar/rechazar)
 
 ### Ranking
 - `GET /api/ranking/students` - Ranking de estudiantes
@@ -233,279 +187,138 @@ Para usar MinIO en local, configura `USE_MINIO=true` (por defecto está activado
 - `GET /api/badges` - Todos los badges disponibles
 - `GET /api/badges/user/:userId` - Badges de un usuario
 
-### Requests
-- `POST /api/requests` - Crear petición de revisión
-- `GET /api/requests` - Listar peticiones
-- `PUT /api/requests/:id/review` - Revisar petición
-
 ### Health Check
 - `GET /health` - Estado del servidor
-
-## 🔌 Ejemplos de Uso
-
-### Registrar/Login Usuario
-```bash
-POST /api/auth/login-or-register
-Content-Type: application/json
-
-{
-  "username": "Juan Pérez",
-  "role": "student"
-}
-```
-
-### Registrar Reciclaje
-```bash
-POST /api/recycling
-Content-Type: application/json
-
-{
-  "userId": 1,
-  "categoryId": 1,
-  "quantity": 5.5,
-  "unit": "kg",
-  "evidenceImageUrl": "https://..."
-}
-```
-
-### Obtener Ranking
-```bash
-GET /api/ranking/students?limit=10
-```
 
 ## 📝 Scripts Disponibles
 
 - `npm start` - Iniciar servidor en producción
 - `npm run dev` - Iniciar servidor en desarrollo (con nodemon)
 - `npm run db:migrate` - Ejecutar migraciones (crea estructura/tablas)
-- `npm run db:seed` - Ejecutar seed (inserta datos iniciales: badges y profesores)
+- `npm run db:seed` - Ejecutar seed (inserta datos iniciales)
 - `npm run test:connection` - Probar conexión (entorno actual)
 - `npm run test:connection:local` - Probar conexión LOCAL
-- `npm run test:connection:aws` - Probar conexión AWS
+- `npm run test:connection:r2` - Probar conexión con Cloudflare R2
 
 ## 🚀 Deployment en Render
 
-### Opción 1: Desde GitHub (Recomendado)
+### 1. Preparar código
 
-1. **Subir código a GitHub**
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/tu-usuario/sistema-reciclaje-backend.git
-   git push -u origin main
-   ```
-   ⚠️ **Importante**: Asegúrate de que `.env` esté en `.gitignore` (no commits credenciales)
+Asegúrate de que `.env` esté en `.gitignore` (no commits credenciales).
 
-2. **Crear cuenta en Render**
-   - Ir a [render.com](https://render.com)
-   - Conectar con GitHub
+### 2. Crear cuenta en Render
 
-3. **Crear Base de Datos PostgreSQL**
-   - En Render Dashboard: New → PostgreSQL
-   - Seleccionar plan (Free para empezar)
-   - Anotar la `DATABASE_URL` que se genera
+- Ir a [render.com](https://render.com)
+- Conectar con GitHub
 
-4. **Crear Web Service**
-   - New → Web Service
-   - Conectar repositorio GitHub
-   - Configuración:
-     - **Build Command**: `npm install`
-     - **Start Command**: `npm start`
-     - **Environment Variables**:
-       - `ENVIRONMENT=aws`
-       - `DATABASE_URL`: (copiar desde la BD creada)
-       - `DB_SSL=true`
-       - `NODE_ENV=production`
-       - `PORT=3000`
-       - Variables de AWS S3 si aplica:
-         - `AWS_REGION=us-east-1`
-         - `AWS_ACCESS_KEY_ID=...`
-         - `AWS_SECRET_ACCESS_KEY=...`
-         - `S3_BUCKET_NAME=...`
+### 3. Obtener credenciales necesarias
 
-5. **Ejecutar migraciones**
-   - Una vez desplegado, ir a la consola del servicio
-   - Ejecutar: `npm run db:migrate`
+**A. DATABASE_URL de Supabase:**
+1. Ve a tu proyecto en [Supabase Dashboard](https://supabase.com/dashboard)
+2. Settings → Database
+3. Copia la **Connection string** (URI mode)
+4. Formato: `postgresql://postgres:[PASSWORD]@[PROJECT].supabase.co:5432/postgres`
 
-6. **Auto-Deploy**
-   - Render detecta cambios automáticamente cuando haces `git push`
+**B. Credenciales de Cloudflare R2:**
+1. Ve a [Cloudflare R2 Dashboard](https://dash.cloudflare.com/?to=/:account/r2/api-tokens)
+2. Crea un API Token con permisos "Object Read & Write"
+3. Copia:
+   - **Access Key ID**
+   - **Secret Access Key**
+4. Obtén el endpoint de tu bucket (Settings → S3 API)
+5. Formato endpoint: `https://[account-id].r2.cloudflarestorage.com`
 
-### Opción 2: Con render.yaml
+### 4. Crear Web Service en Render
 
-1. Crear servicio desde el dashboard
-2. Render detectará `render.yaml` automáticamente
-3. Configurar variables de entorno manualmente
+- New → Web Service
+- Conectar repositorio GitHub
+- **Build Command:** `npm install`
+- **Start Command:** `npm start`
+- **Plan:** Free (o el plan que prefieras)
 
-## 🧪 Testing
+### 5. Configurar Variables de Entorno en Render
 
-### Health Check
+En Render Dashboard → Tu Web Service → Environment:
+
+```env
+# ✅ OBLIGATORIAS
+
+# ENVIRONMENT: Necesario para usar Supabase + R2 (sin esto, usaría modo local)
+ENVIRONMENT=aws
+
+# DATABASE_URL: Conexión a Supabase (OBLIGATORIA)
+DATABASE_URL=postgresql://postgres:[TU_PASSWORD]@[TU_PROYECTO].supabase.co:5432/postgres
+
+# Cloudflare R2: Credenciales (OBLIGATORIAS)
+R2_ACCESS_KEY_ID=tu_access_key_id_de_r2
+R2_SECRET_ACCESS_KEY=tu_secret_access_key_de_r2
+R2_REGION=auto
+R2_BUCKET_NAME=selva-go
+R2_ENDPOINT=https://[tu-account-id].r2.cloudflarestorage.com
+
+# ⚠️ OPCIONALES (Render las inyecta automáticamente, pero puedes ponerlas)
+
+# PORT: Render lo inyecta automáticamente (no es necesario, pero puedes ponerlo)
+PORT=3000
+
+# NODE_ENV: Solo afecta logging (menos logs en producción). Opcional.
+NODE_ENV=production
+
+# CORS_ORIGIN: Para seguridad en producción. Opcional (por defecto es '*')
+CORS_ORIGIN=*
+```
+
+**Explicación de cada variable:**
+
+- **`ENVIRONMENT=aws`** ⚠️ **NECESARIA**: Le dice al código que use Supabase + R2 (sin esto, intentaría usar modo local)
+- **`DATABASE_URL`** ⚠️ **NECESARIA**: La conexión a tu base de datos Supabase
+- **`R2_*`** ⚠️ **NECESARIAS**: Credenciales de Cloudflare R2 para guardar imágenes
+- **`PORT`** ✅ Opcional: Render lo inyecta automáticamente (default: 3000)
+- **`NODE_ENV`** ✅ Opcional: Solo reduce logs en producción (no es crítico)
+- **`CORS_ORIGIN`** ✅ Opcional: Para seguridad (por defecto permite todo '*')
+
+**⚠️ IMPORTANTE:**
+- Reemplaza `[TU_PASSWORD]` y `[TU_PROYECTO]` con los valores reales de tu Supabase
+- Reemplaza `[tu-account-id]` con tu account ID de Cloudflare
+- No uses comillas en las variables de entorno en Render
+
+### 6. Ejecutar migraciones y seed
+
+Una vez que el servicio esté desplegado:
+
+1. Ve a Render Dashboard → Tu Web Service
+2. Click en **Shell** (consola)
+3. Ejecuta:
 ```bash
-curl http://localhost:3000/health
+npm run db:migrate
+npm run db:seed
 ```
 
-### Probar conexión a base de datos
-```bash
-npm run test:connection
-```
+### 7. Verificar que funciona
 
-### Probar registro
-```bash
-curl -X POST http://localhost:3000/api/auth/login-or-register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"Test User","role":"student"}'
-```
+- Ve a la URL de tu servicio (ej: `https://tu-servicio.onrender.com`)
+- Prueba el health check: `GET https://tu-servicio.onrender.com/health`
+- Debería responder con el estado del servidor
 
-## 🔒 Seguridad
+### 8. Auto-Deploy
 
-- ⚠️ **Por ahora NO hay JWT** - Se implementará después
-- ⚠️ Las rutas no están protegidas todavía
-- ✅ CORS configurado para permitir requests desde la app móvil
-- ⚠️ En producción, limitar CORS a dominios específicos
-- ⚠️ **Nunca commits credenciales reales** al repositorio
+Render hará auto-deploy automáticamente cuando hagas `git push` a la rama principal.
 
-## 🐛 Troubleshooting
+## 📋 Checklist para Deployment
 
-### Error de conexión a base de datos
-- Verificar que PostgreSQL esté corriendo
-- Verificar credenciales en `.env`
-- Verificar que la base de datos exista
-- Verificar que `ENVIRONMENT` esté configurado correctamente
-- **Para AWS RDS**: Verificar Security Group permite conexiones desde tu IP (o 0.0.0.0/0)
-
-### Error en migración
-- Verificar que el usuario tenga permisos
-- Verificar que las tablas no existan ya
-- Probar conexión primero: `npm run test:connection`
-
-### CORS errors
-- Verificar configuración de CORS en `server.js`
-- En producción, especificar dominio exacto en `CORS_ORIGIN`
-
-### MinIO/S3 no funciona en LOCAL
-- Verifica que MinIO esté corriendo: `docker ps` debe mostrar `minio_reciclaje`
-- Verifica que el puerto 9000 esté disponible
-- Verifica las credenciales en `.env` (MINIO_ACCESS_KEY, MINIO_SECRET_KEY)
-- Verifica que el bucket exista en MinIO Console (http://localhost:9001)
-- Si no quieres usar MinIO, establece `USE_MINIO=false` en `.env`
-
-### Error "Network request failed" en el frontend
-
-Si el frontend no puede conectarse al backend local, verifica:
-
-1. **Backend está corriendo**: Asegúrate de que `npm run dev` esté ejecutándose
-2. **Misma red WiFi**: Tu dispositivo móvil debe estar en la misma red WiFi que tu computadora
-3. **IP correcta**: Verifica que la IP en `Sistema-Reciclaje-React/src/config/api.js` sea tu IP local (obtener con `ipconfig` en Windows)
-4. **Firewall de Windows**: El firewall puede estar bloqueando el puerto 3000
-
-**Solución rápida - Abrir puerto en Firewall:**
-
-```powershell
-# Ejecutar como Administrador en PowerShell
-cd Sistema-Reciclaje-Backend
-PowerShell -ExecutionPolicy Bypass -File .\abrir-puerto-firewall.ps1
-```
-
-O manualmente:
-1. Abre "Firewall de Windows Defender" → "Configuración avanzada"
-2. Reglas de entrada → Nueva regla
-3. Puerto → TCP → 3000 → Permitir conexión
-4. Nombre: "Sistema Reciclaje Backend - Puerto 3000"
-
-**Verificar que el backend responde:**
-```bash
-# Desde tu computadora
-curl http://localhost:3000/health
-
-# Desde tu dispositivo móvil (misma red WiFi)
-# Abre el navegador y ve a: http://TU_IP_LOCAL:3000/health
-# Debe mostrar: {"status":"ok","message":"Sistema de Reciclaje API is running",...}
-```
-
-### S3 error "ACL not supported" o acceso denegado
-- Configurar Bucket Policy para acceso público en AWS Console
-- Desmarcar "Block all public access" en Permissions del bucket
-- Verificar que las credenciales AWS sean correctas
-
-### Build falla en Render
-- Verificar que `package.json` tenga todas las dependencias
-- Revisar logs en Render Dashboard
-- Verificar que todas las variables de entorno estén configuradas
-
-## ☁️ Almacenamiento de Archivos
-
-### MinIO (Local)
-
-MinIO es la alternativa local a S3. Para configurarlo:
-
-1. **Ejecutar MinIO con Docker:**
-   ```bash
-   docker run --name minio_reciclaje \
-     -p 9000:9000 \
-     -p 9001:9001 \
-     -e "MINIO_ROOT_USER=minioadmin" \
-     -e "MINIO_ROOT_PASSWORD=minioadmin" \
-     -v minio_data:/data \
-     -d minio/minio server /data --console-address ":9001"
-   ```
-
-2. **Configurar en `.env`:**
-   ```env
-   USE_MINIO=true
-   MINIO_ENDPOINT=http://localhost:9000
-   MINIO_ACCESS_KEY=minioadmin
-   MINIO_SECRET_KEY=minioadmin
-   MINIO_BUCKET_NAME=selvago
-   ```
-
-3. **Crear bucket en MinIO Console:**
-   - Ir a http://localhost:9001
-   - Login y crear el bucket `selvago`
-   - El sistema también puede crearlo automáticamente
-
-### AWS S3 (Producción)
-
-Si usas S3 en producción para almacenar imágenes, configura el bucket:
-
-### Bucket Policy (para acceso público)
-
-En AWS Console → S3 → Tu bucket → Permissions → Bucket Policy:
-
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Principal": "*",
-            "Action": "s3:GetObject",
-            "Resource": "arn:aws:s3:::TU_BUCKET_NAME/*"
-        }
-    ]
-}
-```
-
-**⚠️ IMPORTANTE:** Desmarca "Block all public access" en Permissions → Public access settings.
-
-## ✅ Checklist Pre-Deployment
-
-- [ ] Backend funciona localmente (`npm start`)
-- [ ] Conexión a base de datos funciona (`npm run test:connection`)
-- [ ] Migraciones ejecutadas (`npm run db:migrate`)
-- [ ] `.env` NO está en git (verificar `.gitignore`)
 - [ ] Código subido a GitHub
+- [ ] `.env` en `.gitignore` (no commitear credenciales)
+- [ ] Web Service creado en Render
 - [ ] Variables de entorno configuradas en Render
-- [ ] Health check funciona: `GET /health`
+- [ ] DATABASE_URL de Supabase agregada
+- [ ] Credenciales de Cloudflare R2 agregadas
+- [ ] Migraciones ejecutadas (`npm run db:migrate`)
+- [ ] Seed ejecutado (`npm run db:seed`)
+- [ ] Health check funciona (`/health`)
 
-## 📚 Próximos Pasos
+## ⚠️ Notas Importantes
 
-- [ ] Implementar JWT para autenticación
-- [ ] Agregar validación de datos con Joi o express-validator
-- [ ] Implementar tests unitarios
-- [ ] Agregar logging con Winston
-- [ ] Agregar rate limiting
-- [ ] Documentación con Swagger
-
-## 📄 Licencia
-
-ISC
+- El archivo `.env` NO debe subirse a Git
+- Las credenciales de R2 solo se muestran una vez al crear el token
+- En modo LOCAL, el almacenamiento está deshabilitado (usa R2 para desarrollo con móviles)
+- Cloudflare R2 tiene un tier gratuito generoso (10GB almacenamiento, 1M operaciones/mes)

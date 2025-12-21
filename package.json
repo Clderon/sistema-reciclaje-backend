@@ -10,7 +10,7 @@
     "db:seed": "node src/database/seed.js",
     "test:connection": "node src/database/test-connection.js",
     "test:connection:local": "cross-env ENVIRONMENT=local node src/database/test-connection.js",
-    "test:connection:aws": "cross-env ENVIRONMENT=aws node src/database/test-connection.js"
+    "test:connection:r2": "cross-env ENVIRONMENT=aws node src/database/test-connection.js"
   },
   "keywords": [
     "reciclaje",

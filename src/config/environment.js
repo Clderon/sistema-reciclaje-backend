@@ -1,6 +1,7 @@
 /**
  * Sistema de configuración de entorno
- * Permite cambiar fácilmente entre entorno LOCAL (Docker) y AWS (RDS + S3)
+ * - LOCAL: PostgreSQL en Docker (sin almacenamiento de imágenes)
+ * - AWS: PostgreSQL en RDS + Cloudflare R2 para almacenamiento de imágenes
  */
 
 require('dotenv').config();
@@ -21,15 +22,32 @@ function getDatabaseConfig() {
   const env = currentEnvironment.toLowerCase();
 
   if (env === ENVIRONMENTS.AWS) {
-    // Configuración para AWS RDS
+    // Configuración para PostgreSQL en la nube (Supabase, AWS RDS, etc.)
     if (process.env.DATABASE_URL) {
+      // Detectar si es Supabase (la URL contiene supabase.co)
+      const isSupabase = process.env.DATABASE_URL.includes('supabase.co');
+      
+      // Para Supabase, necesitamos SSL con rejectUnauthorized: false
+      // IMPORTANTE: Remover cualquier parámetro sslmode de la URL para que el objeto SSL tenga control
+      let connectionString = process.env.DATABASE_URL;
+      
+      // Remover parámetros SSL de la URL (si existen) para que el objeto SSL tenga prioridad
+      if (isSupabase) {
+        connectionString = connectionString.replace(/[?&]sslmode=[^&]*/gi, '');
+      }
+      
+      // Configuración SSL explícita - esto es lo que realmente importa para Supabase
+      const sslConfig = isSupabase || process.env.DB_SSL === 'true' 
+        ? { rejectUnauthorized: false } 
+        : false;
+      
       return {
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-        source: 'DATABASE_URL (AWS RDS)'
+        connectionString: connectionString,
+        ssl: sslConfig,
+        source: isSupabase ? 'Supabase (DATABASE_URL)' : 'DATABASE_URL (Cloud PostgreSQL)'
       };
     } else {
-      // Fallback a variables individuales para AWS
+      // Fallback a variables individuales
       return {
         host: process.env.DB_HOST,
         port: parseInt(process.env.DB_PORT || '5432', 10),
@@ -37,11 +55,11 @@ function getDatabaseConfig() {
         user: process.env.DB_USER,
         password: process.env.DB_PASSWORD,
         ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-        source: 'env_vars (AWS RDS)'
+        source: 'env_vars (Cloud PostgreSQL)'
       };
     }
   } else {
-    // Configuración para LOCAL (Docker PostgreSQL)
+    // Configuración para LOCAL (PostgreSQL en Docker)
     return {
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432', 10),
@@ -55,44 +73,30 @@ function getDatabaseConfig() {
 }
 
 /**
- * Obtener configuración de S3 según el entorno
+ * Obtener configuración de almacenamiento según el entorno
  */
 function getS3Config() {
   const env = currentEnvironment.toLowerCase();
 
   if (env === ENVIRONMENTS.AWS) {
-    // Configuración para AWS S3
+    // Configuración para Cloudflare R2 (almacenamiento en la nube)
     return {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      region: process.env.AWS_REGION || 'us-east-1',
-      bucketName: process.env.S3_BUCKET_NAME,
-      endpoint: undefined, // AWS S3 usa el endpoint por defecto
-      s3ForcePathStyle: false,
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      region: process.env.R2_REGION || 'auto',
+      bucketName: process.env.R2_BUCKET_NAME,
+      endpoint: process.env.R2_ENDPOINT,
+      s3ForcePathStyle: true, // R2 siempre requiere path-style
       enabled: true,
-      source: 'AWS S3'
+      source: 'Cloudflare R2'
     };
   } else {
-    // Configuración para LOCAL (MinIO como alternativa a S3)
-    const useMinIO = process.env.USE_MINIO !== 'false'; // Por defecto usar MinIO
-    
-    if (useMinIO) {
-      return {
-        accessKeyId: process.env.MINIO_ACCESS_KEY || 'minioadmin',
-        secretAccessKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
-        region: 'us-east-1', // MinIO requiere región pero la ignora
-        bucketName: process.env.MINIO_BUCKET_NAME || 'selvago',
-        endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
-        s3ForcePathStyle: true, // MinIO requiere path-style
-        enabled: true,
-        source: 'MinIO (local)'
-      };
-    } else {
-      return {
-        enabled: false,
-        source: 'local (deshabilitado)'
-      };
-    }
+    // Modo LOCAL - Sin almacenamiento de imágenes
+    // Para usar almacenamiento, cambiar a ENVIRONMENT=aws y configurar Cloudflare R2
+    return {
+      enabled: false,
+      source: 'local (deshabilitado - usar ENVIRONMENT=aws para R2)'
+    };
   }
 }
 

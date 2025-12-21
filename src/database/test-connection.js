@@ -31,10 +31,13 @@ async function testConnections() {
       console.log(`   Bucket: ${envInfo.s3.bucketName || 'N/A'}`);
     }
   } else {
-    console.log('📊 Configuración AWS:');
+    console.log('📊 Configuración Cloud (Supabase/RDS) + R2:');
     console.log(`   Base de datos: ${envInfo.database.source}`);
     console.log(`   Almacenamiento: ${envInfo.s3.source}`);
     if (envInfo.s3.enabled) {
+      if (envInfo.s3.endpoint) {
+        console.log(`   Endpoint: ${envInfo.s3.endpoint}`);
+      }
       console.log(`   Región: ${envInfo.s3.region || 'N/A'}`);
       console.log(`   Bucket: ${envInfo.s3.bucketName || 'N/A'}`);
     }
@@ -49,7 +52,8 @@ async function testConnections() {
 
   // Probar conexión a base de datos
   try {
-    console.log(`🔍 Probando conexión a PostgreSQL (${isLocal ? 'Docker local' : 'AWS RDS'})...`);
+    const dbLabel = isLocal ? 'Docker local' : (envInfo.database.source.includes('Supabase') ? 'Supabase' : 'Cloud PostgreSQL');
+    console.log(`🔍 Probando conexión a PostgreSQL (${dbLabel})...`);
     await testDB();
     dbSuccess = true;
     console.log('');
@@ -68,29 +72,26 @@ async function testConnections() {
 
   console.log('───────────────────────────────────────────────────\n');
 
-  // Probar conexión a almacenamiento
+  // Probar conexión a almacenamiento (solo Cloudflare R2)
   if (envInfo.s3.enabled) {
-    const storageName = isLocal ? 'MinIO' : 'AWS S3';
     try {
-      console.log(`🔍 Probando conexión a ${storageName}...`);
+      console.log(`🔍 Probando conexión a Cloudflare R2...`);
       await testS3();
       storageSuccess = true;
       console.log('');
     } catch (error) {
       storageError = error;
-      console.error(`❌ Error en ${storageName}: ${error.message}\n`);
+      console.error(`❌ Error en Cloudflare R2: ${error.message}\n`);
       
-      if (isLocal) {
-        console.log('💡 Solución para MinIO local:');
-        console.log('   1. Verifica que el contenedor esté corriendo: docker ps');
-        console.log('   2. Si no está corriendo, inícialo: docker start minio_reciclaje');
-        console.log('   3. Si no existe, créalo con:');
-        console.log('      docker run --name minio_reciclaje -p 9000:9000 -p 9001:9001 -e "MINIO_ROOT_USER=minioadmin" -e "MINIO_ROOT_PASSWORD=minioadmin" -v minio_data:/data -d minio/minio server /data --console-address ":9001"');
-        console.log('   4. Accede a la consola en http://localhost:9001 y crea el bucket "selvago"\n');
-      }
+      console.log('💡 Solución para Cloudflare R2:');
+      console.log('   1. Verifica tus credenciales en .env (R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY)');
+      console.log('   2. Verifica que el R2_BUCKET_NAME sea correcto ("selva-go")');
+      console.log('   3. Verifica que el R2_ENDPOINT sea correcto (https://[tu-account-id].r2.cloudflarestorage.com)');
+      console.log('   4. Asegúrate de que el bucket "selva-go" exista en Cloudflare R2 y que el token API tenga permisos de lectura/escritura.');
+      console.log('   5. Revisa el archivo COMO_CONFIGURAR_R2.md para una guía detallada.\n');
     }
   } else {
-    console.log('ℹ️  Almacenamiento deshabilitado (USE_MINIO=false o modo AWS sin S3)\n');
+    console.log('ℹ️  Almacenamiento deshabilitado (modo local o sin R2 configurado)\n');
   }
 
   console.log('───────────────────────────────────────────────────\n');
@@ -98,10 +99,9 @@ async function testConnections() {
   console.log(`   ${dbSuccess ? '✅' : '❌'} PostgreSQL: ${dbSuccess ? 'OK' : 'FALLO'}`);
   
   if (envInfo.s3.enabled) {
-    const storageName = isLocal ? 'MinIO' : 'AWS S3';
-    console.log(`   ${storageSuccess ? '✅' : '❌'} ${storageName}: ${storageSuccess ? 'OK' : 'FALLO'}`);
+    console.log(`   ${storageSuccess ? '✅' : '❌'} Cloudflare R2: ${storageSuccess ? 'OK' : 'FALLO'}`);
   } else {
-    console.log(`   ⚪ Almacenamiento: N/A (deshabilitado)`);
+    console.log(`   ⚪ Almacenamiento: N/A (deshabilitado - usa ENVIRONMENT=aws para habilitar R2)`);
   }
   
   console.log('═══════════════════════════════════════════════════\n');
@@ -114,10 +114,7 @@ async function testConnections() {
     if (isLocal) {
       console.log('🎉 Tu entorno local está listo para desarrollar.');
       console.log('   - PostgreSQL corriendo en localhost:5432');
-      if (envInfo.s3.enabled) {
-        console.log('   - MinIO corriendo en localhost:9000');
-        console.log('   - MinIO Console disponible en http://localhost:9001\n');
-      }
+      console.log('   - Para usar almacenamiento, configura ENVIRONMENT=aws y Cloudflare R2\n');
     }
     process.exit(0);
   } else {
@@ -128,13 +125,12 @@ async function testConnections() {
       console.log('   - Ver contenedores corriendo: docker ps');
       console.log('   - Ver todos los contenedores: docker ps -a');
       console.log('   - Iniciar PostgreSQL: docker start selvago_db');
-      console.log('   - Iniciar MinIO: docker start minio_reciclaje');
-      console.log('   - Ver logs de PostgreSQL: docker logs selvago_db');
-      console.log('   - Ver logs de MinIO: docker logs minio_reciclaje\n');
+      console.log('   - Ver logs de PostgreSQL: docker logs selvago_db\n');
     } else {
       console.log('💡 Para cambiar de entorno:');
       console.log('   - LOCAL: npm run test:connection:local');
-      console.log('   - AWS:   npm run test:connection:aws\n');
+      console.log('   - R2: npm run test:connection:r2\n');
+      console.log('   💡 Si el problema es con Cloudflare R2, revisa el archivo COMO_CONFIGURAR_R2.md para una guía detallada.\n');
     }
     
     process.exit(1);

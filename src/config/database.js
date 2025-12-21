@@ -7,18 +7,27 @@ const dbConfig = getDatabaseConfig();
 // Crear pool de conexiones
 let pool;
 if (dbConfig.connectionString) {
-  pool = new Pool({
-    connectionString: dbConfig.connectionString,
-    ssl: dbConfig.ssl
-  });
+  // Configuración para conexión con connectionString (Supabase, etc.)
+  // Si es Supabase o requiere SSL, siempre agregar la configuración SSL explícitamente
+  const poolConfig = {
+    connectionString: dbConfig.connectionString
+  };
+  
+  // Siempre agregar SSL si está configurado (necesario para Supabase)
+  if (dbConfig.ssl) {
+    poolConfig.ssl = dbConfig.ssl;
+  }
+  
+  pool = new Pool(poolConfig);
 } else {
+  // Configuración para conexión con variables individuales
   pool = new Pool({
     host: dbConfig.host,
     port: dbConfig.port,
     database: dbConfig.database,
     user: dbConfig.user,
     password: dbConfig.password,
-    ssl: dbConfig.ssl
+    ssl: dbConfig.ssl || false
   });
 }
 
