@@ -1,42 +1,40 @@
 const { Pool } = require('pg');
-require('dotenv').config();
+const { getDatabaseConfig } = require('./environment');
 
-// Configuración de conexión
+// Obtener configuración según el entorno (local o aws)
+const dbConfig = getDatabaseConfig();
+
+// Crear pool de conexiones
 let pool;
-
-if (process.env.DATABASE_URL) {
-  // Render, Railway o RDS proporcionan DATABASE_URL directamente
+if (dbConfig.connectionString) {
   pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    // RDS generalmente requiere SSL, Render también
-    ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
+    connectionString: dbConfig.connectionString,
+    ssl: dbConfig.ssl
   });
 } else {
-  // Configuración manual (para RDS o local)
-  const sslConfig = process.env.DB_SSL === 'true' 
-    ? { rejectUnauthorized: false }  // Para RDS
-    : (process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false);
-    
   pool = new Pool({
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 5432,
-    database: process.env.DB_NAME || 'sistema_reciclaje',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-    ssl: sslConfig
+    host: dbConfig.host,
+    port: dbConfig.port,
+    database: dbConfig.database,
+    user: dbConfig.user,
+    password: dbConfig.password,
+    ssl: dbConfig.ssl
   });
 }
 
-// Función para probar conexión
+// Función para probar conexión (lanza error si falla)
 async function testConnection() {
   try {
     const client = await pool.connect();
-    const result = await client.query('SELECT NOW()');
-    console.log('✅ Conexión exitosa a PostgreSQL:', result.rows[0].now);
+    const result = await client.query('SELECT NOW(), current_database(), current_user');
+    console.log(`✅ Conexión exitosa a PostgreSQL [${dbConfig.source}]:`);
+    console.log(`   📊 Base de datos: ${result.rows[0].current_database}`);
+    console.log(`   👤 Usuario: ${result.rows[0].current_user}`);
+    console.log(`   ⏰ Hora del servidor: ${result.rows[0].now}`);
     client.release();
     return true;
   } catch (error) {
-    console.error('❌ Error conectando a PostgreSQL:', error.message);
+    console.error(`❌ Error conectando a PostgreSQL [${dbConfig.source}]:`, error.message);
     throw error;
   }
 }

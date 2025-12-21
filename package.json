@@ -4,12 +4,13 @@
   "description": "Backend API para Sistema de Reciclaje",
   "main": "src/server.js",
   "scripts": {
-    "db:migrate:requests": "node src/database/runMigration.js",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "db:migrate": "node src/database/migrate.js",
     "db:seed": "node src/database/seed.js",
-    "db:seed:teachers": "node seed-teachers.js"
+    "test:connection": "node src/database/test-connection.js",
+    "test:connection:local": "cross-env ENVIRONMENT=local node src/database/test-connection.js",
+    "test:connection:aws": "cross-env ENVIRONMENT=aws node src/database/test-connection.js"
   },
   "keywords": [
     "reciclaje",
@@ -31,6 +32,7 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "nodemon": "^3.0.2"
   },
   "engines": {

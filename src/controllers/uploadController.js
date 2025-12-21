@@ -52,14 +52,23 @@ async function getUserImageCount(req, res) {
  */
 async function uploadImageFromBase64(req, res) {
   try {
+    console.log('📥 Recibida petición de subida de imagen');
     const { image, fileName, userId } = req.body;
 
     if (!image) {
+      console.error('❌ No se proporcionó imagen');
       return res.status(400).json({
         error: 'Imagen requerida',
         message: 'Se requiere el campo "image" en base64'
       });
     }
+
+    console.log('📊 Datos recibidos:', {
+      hasImage: !!image,
+      imageLength: image ? image.length : 0,
+      fileName: fileName || 'no proporcionado',
+      userId: userId || 'no proporcionado',
+    });
 
     // Validar y extraer el tipo MIME y los datos base64
     let matches;
