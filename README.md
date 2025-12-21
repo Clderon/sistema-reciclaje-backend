@@ -211,110 +211,49 @@ Asegúrate de que `.env` esté en `.gitignore` (no commits credenciales).
 - Ir a [render.com](https://render.com)
 - Conectar con GitHub
 
-### 3. Obtener credenciales necesarias
+### 3. Crear Base de Datos PostgreSQL
 
-**A. DATABASE_URL de Supabase:**
-1. Ve a tu proyecto en [Supabase Dashboard](https://supabase.com/dashboard)
-2. Settings → Database
-3. Copia la **Connection string** (URI mode)
-4. Formato: `postgresql://postgres:[PASSWORD]@[PROJECT].supabase.co:5432/postgres`
+- En Render Dashboard: New → PostgreSQL
+- Seleccionar plan (Free para empezar)
+- Anotar la `DATABASE_URL` que se genera
 
-**B. Credenciales de Cloudflare R2:**
-1. Ve a [Cloudflare R2 Dashboard](https://dash.cloudflare.com/?to=/:account/r2/api-tokens)
-2. Crea un API Token con permisos "Object Read & Write"
-3. Copia:
-   - **Access Key ID**
-   - **Secret Access Key**
-4. Obtén el endpoint de tu bucket (Settings → S3 API)
-5. Formato endpoint: `https://[account-id].r2.cloudflarestorage.com`
-
-### 4. Crear Web Service en Render
+### 4. Crear Web Service
 
 - New → Web Service
 - Conectar repositorio GitHub
 - **Build Command:** `npm install`
 - **Start Command:** `npm start`
-- **Plan:** Free (o el plan que prefieras)
 
-### 5. Configurar Variables de Entorno en Render
+### 5. Configurar Variables de Entorno
 
-En Render Dashboard → Tu Web Service → Environment:
-
+En Render Dashboard → Environment:
 ```env
-# ✅ OBLIGATORIAS
-
-# ENVIRONMENT: Necesario para usar Supabase + R2 (sin esto, usaría modo local)
 ENVIRONMENT=aws
+DATABASE_URL=postgresql://... (de Render)
+DB_SSL=true
+NODE_ENV=production
+PORT=3000
+CORS_ORIGIN=*
 
-# DATABASE_URL: Conexión a Supabase (OBLIGATORIA)
-DATABASE_URL=postgresql://postgres:[TU_PASSWORD]@[TU_PROYECTO].supabase.co:5432/postgres
-
-# Cloudflare R2: Credenciales (OBLIGATORIAS)
-R2_ACCESS_KEY_ID=tu_access_key_id_de_r2
-R2_SECRET_ACCESS_KEY=tu_secret_access_key_de_r2
+# Cloudflare R2
+R2_ACCESS_KEY_ID=tu_access_key_id
+R2_SECRET_ACCESS_KEY=tu_secret_access_key
 R2_REGION=auto
 R2_BUCKET_NAME=selva-go
-R2_ENDPOINT=https://[tu-account-id].r2.cloudflarestorage.com
-
-# ⚠️ OPCIONALES (Render las inyecta automáticamente, pero puedes ponerlas)
-
-# PORT: Render lo inyecta automáticamente (no es necesario, pero puedes ponerlo)
-PORT=3000
-
-# NODE_ENV: Solo afecta logging (menos logs en producción). Opcional.
-NODE_ENV=production
-
-# CORS_ORIGIN: Para seguridad en producción. Opcional (por defecto es '*')
-CORS_ORIGIN=*
+R2_ENDPOINT=https://[account-id].r2.cloudflarestorage.com
 ```
 
-**Explicación de cada variable:**
+### 6. Ejecutar migraciones
 
-- **`ENVIRONMENT=aws`** ⚠️ **NECESARIA**: Le dice al código que use Supabase + R2 (sin esto, intentaría usar modo local)
-- **`DATABASE_URL`** ⚠️ **NECESARIA**: La conexión a tu base de datos Supabase
-- **`R2_*`** ⚠️ **NECESARIAS**: Credenciales de Cloudflare R2 para guardar imágenes
-- **`PORT`** ✅ Opcional: Render lo inyecta automáticamente (default: 3000)
-- **`NODE_ENV`** ✅ Opcional: Solo reduce logs en producción (no es crítico)
-- **`CORS_ORIGIN`** ✅ Opcional: Para seguridad (por defecto permite todo '*')
-
-**⚠️ IMPORTANTE:**
-- Reemplaza `[TU_PASSWORD]` y `[TU_PROYECTO]` con los valores reales de tu Supabase
-- Reemplaza `[tu-account-id]` con tu account ID de Cloudflare
-- No uses comillas en las variables de entorno en Render
-
-### 6. Ejecutar migraciones y seed
-
-Una vez que el servicio esté desplegado:
-
-1. Ve a Render Dashboard → Tu Web Service
-2. Click en **Shell** (consola)
-3. Ejecuta:
+En Render Dashboard → Shell del servicio:
 ```bash
 npm run db:migrate
 npm run db:seed
 ```
 
-### 7. Verificar que funciona
+### 7. Auto-Deploy
 
-- Ve a la URL de tu servicio (ej: `https://tu-servicio.onrender.com`)
-- Prueba el health check: `GET https://tu-servicio.onrender.com/health`
-- Debería responder con el estado del servidor
-
-### 8. Auto-Deploy
-
-Render hará auto-deploy automáticamente cuando hagas `git push` a la rama principal.
-
-## 📋 Checklist para Deployment
-
-- [ ] Código subido a GitHub
-- [ ] `.env` en `.gitignore` (no commitear credenciales)
-- [ ] Web Service creado en Render
-- [ ] Variables de entorno configuradas en Render
-- [ ] DATABASE_URL de Supabase agregada
-- [ ] Credenciales de Cloudflare R2 agregadas
-- [ ] Migraciones ejecutadas (`npm run db:migrate`)
-- [ ] Seed ejecutado (`npm run db:seed`)
-- [ ] Health check funciona (`/health`)
+Render hará auto-deploy en cada push a la rama principal.
 
 ## ⚠️ Notas Importantes
 
