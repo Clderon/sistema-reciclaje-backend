@@ -1,16 +1,13 @@
 // Forzar IPv4 para todas las resoluciones DNS (Render no soporta IPv6)
 const dns = require('dns');
 if (dns.setDefaultResultOrder) {
-  // Node.js 17.3.0+ - fuerza IPv4 primero
   dns.setDefaultResultOrder('ipv4first');
-} else if (dns.setServers) {
-  // Fallback: usar solo servidores DNS IPv4 si es posible
-  // Esto es menos agresivo pero puede ayudar
 }
 
 const { Pool } = require('pg');
 const { getDatabaseConfig } = require('./environment');
 const { URL } = require('url');
+const logger = require('./logger');
 
 // Obtener configuración según el entorno (local o aws)
 const dbConfig = getDatabaseConfig();
@@ -22,31 +19,23 @@ if (dbConfig.connectionString) {
   const isSupabasePooler = dbConfig.connectionString.includes('pooler.supabase.com');
   
   if (isSupabasePooler) {
-    console.log('🔧 Detectado pooler de Supabase - Configurando para IPv4 (family: 4)');
-    
-    // Parsear la URL para poder especificar family: 4 (IPv4)
+    logger.info('Detectado pooler de Supabase — configurando IPv4 forzado (family: 4)');
+
     const parsedUrl = new URL(dbConfig.connectionString);
-    
-    // IMPORTANTE: Parsear correctamente los parámetros de query string si existen
     const pathParts = parsedUrl.pathname.split('/').filter(p => p);
     const database = pathParts[pathParts.length - 1] || 'postgres';
-    
+
     const poolConfig = {
       host: parsedUrl.hostname,
       port: parseInt(parsedUrl.port, 10) || 6543,
       database: database,
       user: parsedUrl.username || 'postgres',
       password: parsedUrl.password,
-      // Forzar IPv4 usando family: 4 (Render no soporta IPv6)
-      // Esto le dice a Node.js que solo use direcciones IPv4
       family: 4,
-      ssl: dbConfig.ssl || { rejectUnauthorized: false } // Ya está configurado en environment.js
+      ssl: dbConfig.ssl || { rejectUnauthorized: false }
     };
-    
-    console.log(`   Host: ${poolConfig.host}:${poolConfig.port}`);
-    console.log(`   Database: ${poolConfig.database}`);
-    console.log(`   User: ${poolConfig.user}`);
-    console.log(`   Family: ${poolConfig.family} (IPv4 forzado)`);
+
+    logger.info({ host: `${poolConfig.host}:${poolConfig.port}`, database: poolConfig.database, user: poolConfig.user }, 'Conexión Supabase pooler');
     
     pool = new Pool(poolConfig);
   } else {
@@ -79,14 +68,19 @@ async function testConnection() {
   try {
     const client = await pool.connect();
     const result = await client.query('SELECT NOW(), current_database(), current_user');
-    console.log(`✅ Conexión exitosa a PostgreSQL [${dbConfig.source}]:`);
-    console.log(`   📊 Base de datos: ${result.rows[0].current_database}`);
-    console.log(`   👤 Usuario: ${result.rows[0].current_user}`);
-    console.log(`   ⏰ Hora del servidor: ${result.rows[0].now}`);
+    logger.info(
+      {
+        source: dbConfig.source,
+        database: result.rows[0].current_database,
+        user: result.rows[0].current_user,
+        serverTime: result.rows[0].now,
+      },
+      'Conexión exitosa a PostgreSQL'
+    );
     client.release();
     return true;
   } catch (error) {
-    console.error(`❌ Error conectando a PostgreSQL [${dbConfig.source}]:`, error.message);
+    logger.error({ source: dbConfig.source, err: error.message }, 'Error conectando a PostgreSQL');
     throw error;
   }
 }
@@ -97,13 +91,10 @@ async function query(text, params) {
   try {
     const res = await pool.query(text, params);
     const duration = Date.now() - start;
-    // Solo loggear queries en desarrollo para no llenar logs en producción
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Query ejecutada', { text: text.substring(0, 100), duration, rows: res.rowCount });
-    }
+    logger.debug({ query: text.substring(0, 100), duration_ms: duration, rows: res.rowCount }, 'Query ejecutada');
     return res;
   } catch (error) {
-    console.error('Error en query:', error);
+    logger.error({ query: text.substring(0, 100), err: error.message }, 'Error en query');
     throw error;
   }
 }

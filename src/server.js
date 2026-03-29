@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const logger = require('./config/logger');
+const { swaggerUi, swaggerDocument } = require('./config/swagger');
 
 // Importar rutas
 const authRoutes = require('./routes/auth');
@@ -15,10 +17,9 @@ const uploadRoutes = require('./routes/upload');
 let requestRoutes;
 try {
   requestRoutes = require('./routes/requests');
-  console.log('✅ Ruta /api/requests cargada correctamente');
+  logger.info('Ruta /api/requests cargada correctamente');
 } catch (error) {
-  console.error('❌ Error cargando rutas de requests:', error);
-  // Crear un router vacío para evitar que el servidor falle
+  logger.error({ err: error.message }, 'Error cargando rutas de requests');
   requestRoutes = require('express').Router();
 }
 
@@ -40,13 +41,17 @@ app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
-// Logging de requests (solo en desarrollo)
-if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path}`);
-    next();
+// Logging de requests HTTP
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    logger.info(
+      { method: req.method, url: req.originalUrl, status: res.statusCode, duration_ms: Date.now() - start },
+      'HTTP request'
+    );
   });
-}
+  next();
+})
 
 // Ruta de salud (health check)
 app.get('/health', (req, res) => {
@@ -56,6 +61,11 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Documentación API (Swagger UI)
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+  customSiteTitle: 'Sistema Reciclaje API Docs',
+}));
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -76,7 +86,7 @@ app.use((req, res) => {
 
 // Manejo de errores global
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  logger.error({ err: err.message, stack: err.stack, url: req.originalUrl }, 'Error no manejado');
   res.status(err.status || 500).json({
     error: err.message || 'Error interno del servidor',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
@@ -86,23 +96,22 @@ app.use((err, req, res, next) => {
 // Iniciar servidor
 async function startServer() {
   try {
-    // Probar conexión a base de datos
     await testConnection();
-    console.log('✅ Conexión a base de datos establecida');
 
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-      console.log(`📡 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-      console.log(`🌐 API base: http://localhost:${PORT}/api`);
-      if (process.env.DATABASE_URL) {
-        console.log(`💾 Base de datos: Conectada (RDS/Render)`);
-      } else {
-        console.log(`💾 Base de datos: ${process.env.DB_HOST || 'localhost'}`);
-      }
+      logger.info(
+        {
+          port: PORT,
+          env: process.env.NODE_ENV || 'development',
+          health: `http://localhost:${PORT}/health`,
+          docs: `http://localhost:${PORT}/api-docs`,
+          database: process.env.DATABASE_URL ? 'RDS/Render' : (process.env.DB_HOST || 'localhost'),
+        },
+        'Servidor iniciado'
+      );
     });
   } catch (error) {
-    console.error('❌ Error al iniciar servidor:', error);
+    logger.error({ err: error.message }, 'Error al iniciar servidor');
     process.exit(1);
   }
 }
