@@ -184,11 +184,46 @@ async function testConnection() {
   }
 }
 
+/**
+ * Regenera una URL presignada fresca (7 días) a partir de una URL almacenada.
+ * Resuelve el problema de URLs vencidas guardadas en la base de datos.
+ *
+ * @param {String} storedUrl - URL presignada vencida o key directa
+ * @returns {String} URL presignada nueva, o la URL original si R2 no está habilitado
+ */
+function refreshPresignedUrl(storedUrl) {
+  if (!s3Config.enabled || !s3 || !storedUrl) return storedUrl;
+
+  try {
+    // Extraer el key del objeto desde la URL almacenada
+    // Formato R2 path-style: https://[account].r2.cloudflarestorage.com/[bucket]/[key]?...
+    const url = new URL(storedUrl);
+    const parts = url.pathname.split('/').filter(p => p);
+
+    // Si el primer segmento es el bucket, el key son los segmentos restantes
+    const key = parts[0] === BUCKET_NAME
+      ? parts.slice(1).join('/')
+      : parts.join('/');
+
+    if (!key) return storedUrl;
+
+    return s3.getSignedUrl('getObject', {
+      Bucket: BUCKET_NAME,
+      Key: key,
+      Expires: 7 * 24 * 60 * 60, // 7 días
+    });
+  } catch {
+    // Si no se puede parsear la URL (ej: formato desconocido), devolver tal cual
+    return storedUrl;
+  }
+}
+
 module.exports = {
   uploadImage,
   deleteImage,
   testConnection,
   ensureBucketExists,
+  refreshPresignedUrl,
   s3,
   BUCKET_NAME,
 };

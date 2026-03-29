@@ -2,6 +2,7 @@ const { query, getClient } = require('../config/database');
 const { calculatePoints, getLevelByPoints } = require('./recyclingController');
 const logger = require('../config/logger');
 const { checkAndAwardBadges } = require('../services/badgeService');
+const { refreshPresignedUrl } = require('../config/s3');
 
 // Crear petición de revisión (estudiante envía reciclaje para revisión)
 async function createRequest(req, res) {
@@ -143,7 +144,7 @@ async function getPendingRequests(req, res) {
       categoryId: row.category_id,
       quantity: parseFloat(row.quantity),
       unit: row.unit,
-      evidenceImageUrl: row.evidence_image_url,
+      evidenceImageUrl: refreshPresignedUrl(row.evidence_image_url),
       status: row.status,
       createdAt: row.created_at
     }));

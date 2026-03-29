@@ -1,6 +1,7 @@
 const { query, getClient } = require('../config/database');
 const logger = require('../config/logger');
 const { checkAndAwardBadges } = require('../services/badgeService');
+const { refreshPresignedUrl } = require('../config/s3');
 
 // Función para calcular puntos según categoría y cantidad/peso con sistema de escalado
 function calculatePoints(categoryId, quantity, unit) {
@@ -216,7 +217,7 @@ async function getUserRecyclingHistory(req, res) {
         quantity: parseFloat(row.quantity),
         unit: row.unit,
         pointsEarned: row.points_earned,
-        evidenceImageUrl: row.evidence_image_url,
+        evidenceImageUrl: refreshPresignedUrl(row.evidence_image_url),
         createdAt: row.created_at
       })),
       pagination: {
