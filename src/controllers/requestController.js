@@ -1,5 +1,7 @@
 const { query, getClient } = require('../config/database');
 const { calculatePoints, getLevelByPoints } = require('./recyclingController');
+const logger = require('../config/logger');
+const { checkAndAwardBadges } = require('../services/badgeService');
 
 // Crear petición de revisión (estudiante envía reciclaje para revisión)
 async function createRequest(req, res) {
@@ -14,8 +16,7 @@ async function createRequest(req, res) {
       });
     }
 
-    // Log de la petición
-    console.log(`ID: ${userId}, Cantidad: ${quantity} ${unit}, Imagen: ${evidenceImageUrl}`);
+    logger.debug({ userId, quantity, unit }, 'Nueva petición de reciclaje');
 
     if (quantity <= 0) {
       return res.status(400).json({
@@ -90,7 +91,7 @@ async function createRequest(req, res) {
       }
     });
   } catch (error) {
-    console.error('Error en createRequest:', error);
+    logger.error({ err: error.message }, 'Error en createRequest');
     res.status(500).json({
       error: 'Error interno del servidor',
       message: error.message
@@ -157,7 +158,7 @@ async function getPendingRequests(req, res) {
       }
     });
   } catch (error) {
-    console.error('Error en getPendingRequests:', error);
+    logger.error({ err: error.message }, 'Error en getPendingRequests');
     res.status(500).json({
       error: 'Error interno del servidor',
       message: error.message
@@ -252,11 +253,14 @@ async function approveRequest(req, res) {
     // Actualizar nivel si corresponde
     const newLevel = getLevelByPoints(newTotalPoints);
     await client.query(
-      `UPDATE users 
+      `UPDATE users
        SET current_level = $1
        WHERE id = $2 AND current_level != $1`,
       [newLevel, request.student_id]
     );
+
+    // Otorgar badges que el estudiante ya cumple con sus nuevos puntos
+    const newBadges = await checkAndAwardBadges(client, request.student_id, newTotalPoints);
 
     await client.query('COMMIT');
 
@@ -265,18 +269,19 @@ async function approveRequest(req, res) {
       request: {
         id: parseInt(id),
         status: 'approved',
-        pointsAwarded
+        pointsAwarded,
       },
       studentStats: {
         totalPoints: newTotalPoints,
         totalRecyclings: newTotalRecyclings,
-        currentLevel: newLevel
+        currentLevel: newLevel,
+        newBadges,
       }
     });
 
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Error en approveRequest:', error);
+    logger.error({ err: error.message }, 'Error en approveRequest');
     res.status(500).json({
       error: 'Error interno del servidor',
       message: error.message
@@ -345,7 +350,7 @@ async function rejectRequest(req, res) {
     });
 
   } catch (error) {
-    console.error('Error en rejectRequest:', error);
+    logger.error({ err: error.message }, 'Error en rejectRequest');
     res.status(500).json({
       error: 'Error interno del servidor',
       message: error.message

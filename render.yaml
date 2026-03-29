@@ -3,7 +3,7 @@ services:
     name: sistema-reciclaje-api
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm run db:migrate
     startCommand: npm start
     envVars:
       - key: NODE_ENV

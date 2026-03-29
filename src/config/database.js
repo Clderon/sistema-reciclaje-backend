@@ -12,12 +12,18 @@ const logger = require('./logger');
 // Obtener configuración según el entorno (local o aws)
 const dbConfig = getDatabaseConfig();
 
+// Límites del pool — configurables via env vars para ajustar según el plan de Supabase
+const POOL_LIMITS = {
+  max: parseInt(process.env.DB_POOL_MAX || '10', 10),       // máx conexiones simultáneas
+  idleTimeoutMillis: 30000,                                   // libera conexiones inactivas tras 30s
+  connectionTimeoutMillis: 5000,                              // falla si no obtiene conexión en 5s
+};
+
 // Crear pool de conexiones
 let pool;
 if (dbConfig.connectionString) {
-  // Para Supabase (pooler), necesitamos forzar IPv4 porque Render no soporta IPv6
   const isSupabasePooler = dbConfig.connectionString.includes('pooler.supabase.com');
-  
+
   if (isSupabasePooler) {
     logger.info('Detectado pooler de Supabase — configurando IPv4 forzado (family: 4)');
 
@@ -32,36 +38,40 @@ if (dbConfig.connectionString) {
       user: parsedUrl.username || 'postgres',
       password: parsedUrl.password,
       family: 4,
-      ssl: dbConfig.ssl || { rejectUnauthorized: false }
+      ssl: dbConfig.ssl || { rejectUnauthorized: false },
+      ...POOL_LIMITS,
     };
 
-    logger.info({ host: `${poolConfig.host}:${poolConfig.port}`, database: poolConfig.database, user: poolConfig.user }, 'Conexión Supabase pooler');
-    
+    logger.info(
+      { host: `${poolConfig.host}:${poolConfig.port}`, database: poolConfig.database, user: poolConfig.user, pool_max: poolConfig.max },
+      'Conexión Supabase pooler'
+    );
+
     pool = new Pool(poolConfig);
   } else {
-    // Para otras conexiones, usar connectionString normalmente
     const poolConfig = {
-      connectionString: dbConfig.connectionString
+      connectionString: dbConfig.connectionString,
+      ...POOL_LIMITS,
     };
-    
-    // Siempre agregar SSL si está configurado (necesario para Supabase)
-    if (dbConfig.ssl) {
-      poolConfig.ssl = dbConfig.ssl;
-    }
-    
+    if (dbConfig.ssl) poolConfig.ssl = dbConfig.ssl;
     pool = new Pool(poolConfig);
   }
 } else {
-  // Configuración para conexión con variables individuales
   pool = new Pool({
     host: dbConfig.host,
     port: dbConfig.port,
     database: dbConfig.database,
     user: dbConfig.user,
     password: dbConfig.password,
-    ssl: dbConfig.ssl || false
+    ssl: dbConfig.ssl || false,
+    ...POOL_LIMITS,
   });
 }
+
+// Loggear errores inesperados del pool (conexiones caídas, etc.)
+pool.on('error', (err) => {
+  logger.error({ err: err.message }, 'Error inesperado en pool de conexiones');
+});
 
 // Función para probar conexión (lanza error si falla)
 async function testConnection() {

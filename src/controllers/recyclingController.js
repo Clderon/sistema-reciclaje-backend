@@ -1,4 +1,6 @@
 const { query, getClient } = require('../config/database');
+const logger = require('../config/logger');
+const { checkAndAwardBadges } = require('../services/badgeService');
 
 // Función para calcular puntos según categoría y cantidad/peso con sistema de escalado
 function calculatePoints(categoryId, quantity, unit) {
@@ -55,13 +57,12 @@ function calculatePoints(categoryId, quantity, unit) {
 
   const config = pointsConfig[categoryId];
   if (!config) {
-    console.warn(`Categoría ${categoryId} no encontrada, usando valores por defecto`);
-    return Math.floor(quantity * 5); // Valor por defecto
+    logger.warn({ categoryId }, 'Categoría no encontrada, usando valores por defecto');
+    return Math.floor(quantity * 5);
   }
 
-  // Verificar que la unidad coincida con la categoría
   if (config.unit !== unitKey) {
-    console.warn(`Unidad ${unitKey} no coincide con la esperada ${config.unit} para categoría ${categoryId}`);
+    logger.warn({ unitKey, expected: config.unit, categoryId }, 'Unidad no coincide con la categoría');
   }
 
   // Calcular puntos base
@@ -141,11 +142,14 @@ async function createRecycling(req, res) {
     // Actualizar nivel si corresponde
     const newLevel = getLevelByPoints(newTotalPoints);
     await client.query(
-      `UPDATE users 
+      `UPDATE users
        SET current_level = $1
        WHERE id = $2 AND current_level != $1`,
       [newLevel, userId]
     );
+
+    // Otorgar badges que el usuario ya cumple con sus nuevos puntos
+    const newBadges = await checkAndAwardBadges(client, userId, newTotalPoints);
 
     await client.query('COMMIT');
 
@@ -166,13 +170,14 @@ async function createRecycling(req, res) {
       userStats: {
         totalPoints: newTotalPoints,
         totalRecyclings: newTotalRecyclings,
-        currentLevel: newLevel
+        currentLevel: newLevel,
+        newBadges,
       }
     });
 
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Error en createRecycling:', error);
+    logger.error({ err: error.message }, 'Error en createRecycling');
     res.status(500).json({
       error: 'Error interno del servidor',
       message: error.message
@@ -221,7 +226,7 @@ async function getUserRecyclingHistory(req, res) {
       }
     });
   } catch (error) {
-    console.error('Error en getUserRecyclingHistory:', error);
+    logger.error({ err: error.message }, 'Error en getUserRecyclingHistory');
     res.status(500).json({
       error: 'Error interno del servidor',
       message: error.message

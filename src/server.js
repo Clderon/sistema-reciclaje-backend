@@ -2,8 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const rateLimit = require('express-rate-limit');
 const logger = require('./config/logger');
+const validateEnv = require('./config/validateEnv');
 const { swaggerUi, swaggerDocument } = require('./config/swagger');
+
+// Validar variables de entorno antes de cualquier otra cosa
+validateEnv();
 
 // Importar rutas
 const authRoutes = require('./routes/auth');
@@ -41,6 +46,36 @@ app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
+// Rate limiting
+// General: 100 peticiones por IP cada 15 minutos
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas peticiones, intenta de nuevo en 15 minutos' },
+});
+
+// Auth: 10 intentos por IP cada 15 minutos (protege contra brute-force)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos de autenticación, intenta de nuevo en 15 minutos' },
+});
+
+// Upload: 20 subidas por IP por hora
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Límite de subidas alcanzado, intenta de nuevo en 1 hora' },
+});
+
+app.use('/api/', generalLimiter);
+
 // Logging de requests HTTP
 app.use((req, res, next) => {
   const start = Date.now();
@@ -68,12 +103,12 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
 }));
 
 // API Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/recycling', recyclingRoutes);
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/badges', badgeRoutes);
-app.use('/api/upload', uploadRoutes);
+app.use('/api/upload', uploadLimiter, uploadRoutes);
 app.use('/api/requests', requestRoutes);
 
 // Ruta 404

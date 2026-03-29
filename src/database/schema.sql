@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS user_badges (
     UNIQUE(user_id, badge_id)
 );
 
--- Índices para mejorar rendimiento
+-- Índices simples
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_points ON users(total_points DESC);
 CREATE INDEX IF NOT EXISTS idx_recycling_user_id ON recycling_records(user_id);
@@ -75,6 +75,14 @@ CREATE INDEX IF NOT EXISTS idx_requests_student_id ON recycling_requests(student
 CREATE INDEX IF NOT EXISTS idx_requests_status ON recycling_requests(status);
 CREATE INDEX IF NOT EXISTS idx_requests_created_at ON recycling_requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_requests_reviewed_by ON recycling_requests(reviewed_by);
+
+-- Índices compuestos para queries frecuentes (ranking, historial, requests pendientes)
+CREATE INDEX IF NOT EXISTS idx_users_role_points ON users(role, total_points DESC);
+CREATE INDEX IF NOT EXISTS idx_users_role_recyclings ON users(role, total_recyclings DESC);
+CREATE INDEX IF NOT EXISTS idx_requests_status_date ON recycling_requests(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recycling_user_date ON recycling_records(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_badges_required_points ON badges(required_points ASC);
+CREATE INDEX IF NOT EXISTS idx_user_badges_badge_id ON user_badges(badge_id);
 
 ---
 --- SECCIÓN DE FUNCIONES Y TRIGGERS

@@ -24,15 +24,20 @@ async function migrate() {
       console.log('✅ Schema principal creado exitosamente\n');
     }
 
-    // 2. Ejecutar migraciones adicionales si existen
-    const migrationPath = path.join(__dirname, 'migration_add_recycling_requests.sql');
-    if (fs.existsSync(migrationPath)) {
-      console.log('📄 Ejecutando migración adicional (migration_add_recycling_requests.sql)...');
-      const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
-      
-      // Ejecutar migración línea por línea, respetando bloques DO $$
-      await executeMigrationSQL(migrationSQL);
-      console.log('✅ Migración adicional completada\n');
+    // 2. Ejecutar migraciones adicionales en orden
+    const migrations = [
+      'migration_add_recycling_requests.sql',
+      'migration_composite_indexes.sql',
+    ];
+
+    for (const filename of migrations) {
+      const migrationPath = path.join(__dirname, filename);
+      if (fs.existsSync(migrationPath)) {
+        console.log(`📄 Ejecutando migración: ${filename}...`);
+        const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+        await executeMigrationSQL(migrationSQL);
+        console.log(`✅ ${filename} completada\n`);
+      }
     }
 
     console.log('✅ Migración de estructura completada exitosamente!');

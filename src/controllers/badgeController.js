@@ -1,30 +1,15 @@
 const { query } = require('../config/database');
+const logger = require('../config/logger');
+const { getBadgesData } = require('../services/badgeService');
 
 // Obtener todos los badges disponibles
 async function getAllBadges(req, res) {
   try {
-    const result = await query(
-      `SELECT id, name, description, image_url, required_points, category
-       FROM badges
-       ORDER BY required_points ASC`
-    );
-
-    res.json({
-      badges: result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        imageUrl: row.image_url,
-        requiredPoints: row.required_points,
-        category: row.category
-      }))
-    });
+    const badges = await getBadgesData();
+    res.json({ badges });
   } catch (error) {
-    console.error('Error en getAllBadges:', error);
-    res.status(500).json({
-      error: 'Error interno del servidor',
-      message: error.message
-    });
+    logger.error({ err: error.message }, 'Error en getAllBadges');
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 }
 
@@ -54,11 +39,8 @@ async function getUserBadges(req, res) {
       }))
     });
   } catch (error) {
-    console.error('Error en getUserBadges:', error);
-    res.status(500).json({
-      error: 'Error interno del servidor',
-      message: error.message
-    });
+    logger.error({ err: error.message }, 'Error en getUserBadges');
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 }
 
