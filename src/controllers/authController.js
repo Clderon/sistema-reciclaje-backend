@@ -1,5 +1,17 @@
 const { query } = require('../config/database');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const logger = require('../config/logger');
+
+const TOKEN_EXPIRY = '7d';
+
+function signToken(user) {
+  return jwt.sign(
+    { id: user.id, username: user.username, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: TOKEN_EXPIRY }
+  );
+}
 
 // Registro con email y password (para alumnos)
 async function register(req, res) {
@@ -64,9 +76,11 @@ async function register(req, res) {
     );
 
     const user = result.rows[0];
+    const token = signToken(user);
 
     res.status(201).json({
       message: 'Usuario registrado exitosamente',
+      token,
       user: {
         id: user.id,
         username: user.username,
@@ -79,7 +93,7 @@ async function register(req, res) {
       }
     });
   } catch (error) {
-    console.error('Error en register:', error);
+    logger.error({ err: error.message }, 'Error en register');
     res.status(500).json({
       error: 'Error interno del servidor',
       message: error.message
@@ -134,9 +148,11 @@ async function login(req, res) {
       });
     }
 
-    // Login exitoso
+    const token = signToken(user);
+
     res.json({
       message: 'Login exitoso',
+      token,
       user: {
         id: user.id,
         username: user.username,
@@ -151,7 +167,7 @@ async function login(req, res) {
       }
     });
   } catch (error) {
-    console.error('Error en login:', error);
+    logger.error({ err: error.message }, 'Error en login');
     res.status(500).json({
       error: 'Error interno del servidor',
       message: error.message
@@ -181,10 +197,11 @@ async function loginOrRegister(req, res) {
     );
 
     if (existingUser.rows.length > 0) {
-      // Usuario existe, hacer login
       const user = existingUser.rows[0];
+      const token = signToken(user);
       return res.json({
         message: 'Login exitoso',
+        token,
         user: {
           id: user.id,
           username: user.username,
@@ -198,7 +215,6 @@ async function loginOrRegister(req, res) {
         }
       });
     } else {
-      // Usuario no existe, crear nuevo
       const result = await query(
         `INSERT INTO users (username, role, total_points, total_recyclings, current_level)
          VALUES ($1, $2, 0, 0, 'Hormiga')
@@ -207,8 +223,10 @@ async function loginOrRegister(req, res) {
       );
 
       const user = result.rows[0];
+      const token = signToken(user);
       return res.status(201).json({
         message: 'Usuario creado y logueado exitosamente',
+        token,
         user: {
           id: user.id,
           username: user.username,
@@ -221,7 +239,7 @@ async function loginOrRegister(req, res) {
       });
     }
   } catch (error) {
-    console.error('Error en loginOrRegister:', error);
+    logger.error({ err: error.message }, 'Error en loginOrRegister');
     res.status(500).json({
       error: 'Error interno del servidor',
       message: error.message

@@ -28,9 +28,9 @@ function validateEnv() {
     }
   }
 
-  // JWT_SECRET — advertencia ahora, será requerida cuando se implemente auth
+  // JWT_SECRET — requerida para firmar tokens de autenticación
   if (!process.env.JWT_SECRET) {
-    warnings.push('JWT_SECRET no definida — será requerida cuando se implemente autenticación');
+    errors.push('JWT_SECRET es requerida para la autenticación — agrégala en Render dashboard');
   }
 
   // Imprimir advertencias (no bloquean el arranque)
